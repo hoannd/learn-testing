@@ -1,0 +1,72 @@
+name: Test Acceptance Reusable Workflow
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+
+jobs:
+  test-acceptance:
+    name: Test Acceptance
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: npm
+
+      - name: Setup environment
+        run: ./script/setup-qa
+        env:
+          CI: true
+
+      - name: Run tests
+        run: ./script/test-acceptance
+        env:
+          HTTPBIN_FORM_URL: '${{ vars.RENDER_SERVICE_URL }}/forms/post'
+          AGENT_NO_ANALYTICS: true
+          RP_ENABLED: true
+          RP_UUID: ${{ secrets.RP_API_KEY }}
+          RP_URL: ${{ vars.RP_URL }}
+          RP_PROJECT: ${{ vars.RP_PROJECT }}
+          RP_LAUNCH_DEBUGMODE: false
+          RP_LAUNCH_DESCRIPTION: |
+            ### Launch details
+            - **Repository**: [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})
+            - **Ref**: [`${{ github.ref }}`](${{ github.server_url }}/${{ github.repository }}/${{ startsWith(github.ref, 'refs/pull/') && format('pull/{0}', github.event.pull_request.number) || startsWith(github.ref, 'refs/tags/') && format('releases/tag/{0}', github.ref_name) || format('tree/{0}', github.ref_name) }})
+            - **Commit**: [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+            - **Run**: [#${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - **Run attempt**: [${{ github.run_attempt }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})
+            - **Environment**: UAT
+            - **Triggered by**: [@${{ github.actor }}](${{ github.server_url }}/${{ github.actor }})
+            - **Event**: `${{ github.event_name }}`
+          RP_LAUNCH_NAME: Learn Testing | Acceptance | Gauge
+          RP_LAUNCH_ATTRIBUTES: >-
+            github.actor:${{ github.actor }};
+            github.ref:${{ github.ref }};
+            github.commit:${{ github.sha }};
+            github.environment:UAT;
+            github.repository:${{ github.repository }};
+            github.run.id:${{ github.run_id }};
+            github.workflow:${{ github.workflow }};
+            team.workstream:learn-testing;
+            test.source:github-actions;
+            test.implementation:gauge;
+            test.type:acceptance
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: acceptance-test-results
+          path: |
+            logs/
+            reports/
+          retention-days: 3

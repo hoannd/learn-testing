@@ -1,0 +1,10 @@
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/base:bullseye
+    volumes:
+      - ..:/workspace:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: sleep infinity
+    environment:
+      - NODE_ENV=development
+      - PYTHONUNBUFFERED=1

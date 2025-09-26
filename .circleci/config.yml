@@ -1,0 +1,455 @@
+version: 2.1
+
+# Pipeline parameters for manual triggers
+parameters:
+  run-flaky-tests:
+    type: boolean
+    default: false
+    description: "Set to true to run flaky tests"
+  flaky-test-iterations:
+    type: integer
+    default: 6
+    description: "Number of iterations for flaky tests"
+
+# Orbs - reusable packages of configuration
+orbs:
+  node: circleci/node@7.1.1
+  docker: circleci/docker@2.8.2
+  sonarcloud: sonarsource/sonarcloud@3.0.0
+  heroku: circleci/heroku@2.0.0
+
+# Executors - define environments for running jobs
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:24.0
+    resource_class: medium
+  docker-executor:
+    docker:
+      - image: cimg/base:current
+    resource_class: medium
+
+# Commands - reusable sets of steps
+commands:
+  setup-node-env:
+    description: Setup Node.js environment with cache
+    steps:
+      - checkout
+      - node/install-packages:
+          pkg-manager: npm
+          cache-version: v1
+
+  setup-dev-environment:
+    description: Setup development environment
+    steps:
+      - setup-node-env
+      - run:
+          name: Setup development environment
+          command: ./script/setup-dev
+          environment:
+            CI: true
+
+  setup-qa-environment:
+    description: Setup QA environment
+    steps:
+      - setup-node-env
+      - run:
+          name: Setup QA environment
+          command: ./script/setup-qa
+          environment:
+            CI: true
+
+  run-dev-tests:
+    description: Run development tests with reporting
+    steps:
+      - run:
+          name: Run tests
+          command: ./script/test-dev
+          environment:
+            AGENT_NO_ANALYTICS: true
+            RP_ENABLED: true
+            RP_LAUNCH_DEBUGMODE: false
+            RP_LAUNCH_DESCRIPTION: |
+              ### Launch details
+              - **Repository**: [<< pipeline.project.git_url >>](<< pipeline.project.git_url >>)
+              - **Branch**: `<< pipeline.git.branch >>`
+              - **Commit**: [<< pipeline.git.revision >>](<< pipeline.project.git_url >>/commit/<< pipeline.git.revision >>)
+              - **Pipeline**: [#<< pipeline.number >>](<< pipeline.project.git_url >>/pipelines/<< pipeline.number >>)
+              - **Event**: `<< pipeline.trigger_source >>`
+            RP_LAUNCH_NAME: Learn Testing | Unit | Vitest
+            RP_LAUNCH_ATTRIBUTES: >-
+              circleci.branch:<< pipeline.git.branch >>;
+              circleci.commit:<< pipeline.git.revision >>;
+              circleci.pipeline:<< pipeline.number >>;
+              team.workstream:learn-testing;
+              test.source:circleci;
+              test.implementation:vitest;
+              test.type:unit
+      - store_artifacts:
+          path: logs/
+          destination: test-logs
+      - store_artifacts:
+          path: reports/
+          destination: test-reports
+      - store_test_results:
+          path: reports/test-results.junit.xml
+
+  run-acceptance-tests:
+    description: Run acceptance tests
+    parameters:
+      environment:
+        type: string
+        default: UAT
+    steps:
+      - run:
+          name: Run acceptance tests
+          command: |
+            # Set environment variables here, they won't be expanded in the `environment` section
+            export HTTPBIN_FORM_URL="${HEROKU_APP_URL_UAT}/forms/post"
+            export RP_UUID="${RP_API_KEY}"
+
+            # Run the tests
+            ./script/test-acceptance
+          environment:
+            AGENT_NO_ANALYTICS: true
+            RP_ENABLED: true
+            RP_LAUNCH_DEBUGMODE: false
+            RP_LAUNCH_DESCRIPTION: |
+              ### Launch details
+              - **Repository**: [<< pipeline.project.git_url >>](<< pipeline.project.git_url >>)
+              - **Branch**: `<< pipeline.git.branch >>`
+              - **Commit**: [<< pipeline.git.revision >>](<< pipeline.project.git_url >>/commit/<< pipeline.git.revision >>)
+              - **Pipeline**: [#<< pipeline.number >>](<< pipeline.project.git_url >>/pipelines/<< pipeline.number >>)
+              - **Environment**: << parameters.environment >>
+              - **Event**: `<< pipeline.trigger_source >>`
+            RP_LAUNCH_NAME: Learn Testing | Acceptance | Gauge
+            RP_LAUNCH_ATTRIBUTES: >-
+              circleci.branch:<< pipeline.git.branch >>;
+              circleci.commit:<< pipeline.git.revision >>;
+              circleci.environment:<< parameters.environment >>;
+              circleci.pipeline:<< pipeline.number >>;
+              team.workstream:learn-testing;
+              test.source:circleci;
+              test.implementation:gauge;
+              test.type:acceptance
+      - store_artifacts:
+          path: logs/
+          destination: acceptance-logs
+      - store_artifacts:
+          path: reports/
+          destination: acceptance-reports
+
+  run-flaky-tests:
+    description: Run flaky tests with Playwright
+    parameters:
+      iterations:
+        type: integer
+        default: 6
+        description: Number of test iterations to run
+    steps:
+      - run:
+          name: Install Playwright browsers
+          command: npx playwright install --with-deps chromium
+      - run:
+          name: Run flaky tests
+          command: ./script/test-flaky << parameters.iterations >>
+          environment:
+            CI: true
+            RP_ENABLED: true
+            RP_LAUNCH_DEBUGMODE: false
+            RP_LAUNCH_DESCRIPTION: |
+              ### Flaky Test Launch Details
+              - **Repository**: [<< pipeline.project.git_url >>](<< pipeline.project.git_url >>)
+              - **Branch**: `<< pipeline.git.branch >>`
+              - **Commit**: [<< pipeline.git.revision >>](<< pipeline.project.git_url >>/commit/<< pipeline.git.revision >>)
+              - **Pipeline**: [#<< pipeline.number >>](<< pipeline.project.git_url >>/pipelines/<< pipeline.number >>)
+              - **Iterations**: << parameters.iterations >>
+              - **Event**: `<< pipeline.trigger_source >>`
+            RP_LAUNCH_NAME: Learn Testing | Flaky | Playwright
+            RP_LAUNCH_ATTRIBUTES: >-
+              circleci.branch:<< pipeline.git.branch >>;
+              circleci.commit:<< pipeline.git.revision >>;
+              circleci.pipeline:<< pipeline.number >>;
+              team.workstream:learn-testing;
+              test.source:circleci;
+              test.implementation:playwright;
+              test.type:flaky;
+              test.iterations:<< parameters.iterations >>
+      - store_artifacts:
+          path: playwright-report/
+          destination: playwright-report
+      - store_artifacts:
+          path: test-results/
+          destination: test-results
+      - store_artifacts:
+          path: logs/
+          destination: flaky-logs
+
+  deploy-to-heroku:
+    description: Deploy application to Heroku using Docker Hub image
+    parameters:
+      environment:
+        type: string
+      environment-tag:
+        type: string
+        default: latest
+      app-name-env-var:
+        type: string
+        description: Environment variable name containing the Heroku app name
+    steps:
+      - run:
+          name: Login to Heroku Container Registry and Docker Hub
+          command: |
+            # Login to Heroku Container Registry
+            echo "Logging into Heroku Container Registry with $HEROKU_API_KEY..."
+            echo "$HEROKU_API_KEY" | docker login --username=_ --password-stdin registry.heroku.com
+            echo "Heroku login successful"
+
+            # Login to Docker Hub
+            echo "Logging into Docker Hub with $DOCKER_HUB_USERNAME..."
+            echo "$DOCKER_HUB_TOKEN" | docker login --username "$DOCKER_HUB_USERNAME" --password-stdin
+            echo "Docker Hub login successful"
+      - run:
+          name: Pull from Docker Hub and Deploy to Heroku
+          command: |
+            # Get app name from environment variable
+            APP_NAME=$(eval echo \$<< parameters.app-name-env-var >>)
+            ENVIRONMENT_TAG="<< parameters.environment-tag >>"
+
+            # Pull image from Docker Hub
+            docker pull "$DOCKER_IMAGE:$ENVIRONMENT_TAG"
+
+            # Tag for Heroku registry
+            docker tag "$DOCKER_IMAGE:$ENVIRONMENT_TAG" "registry.heroku.com/$APP_NAME/web"
+
+            # Push to Heroku registry
+            docker push "registry.heroku.com/$APP_NAME/web"
+
+            # Ensure Heroku app uses the container stack
+            heroku stack:set container --app "$APP_NAME"
+
+            # Release to Heroku
+            heroku container:release web --app "$APP_NAME"
+          environment:
+            CI: true
+
+# Jobs
+jobs:
+  # Development testing job
+  test-dev:
+    executor: node-executor
+    steps:
+      - setup-dev-environment
+      - run-dev-tests
+      - sonarcloud/scan:
+          sonar_token_variable_name: SONAR_TOKEN
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+
+  # Build and push Docker image to Docker Hub
+  build-and-push:
+    executor: docker-executor
+    parameters:
+      environment-tag:
+        type: string
+        default: latest
+      docker-image:
+        type: string
+        default: ''
+        description: Docker Hub image name (e.g., username/repository)
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Login to Docker Hub
+          command: |
+            echo $DOCKER_HUB_TOKEN | docker login --username $DOCKER_HUB_USERNAME --password-stdin
+      - run:
+          name: Extract metadata and build tags
+          command: |
+            # Initialize tags array
+            TAGS=""
+
+            # Add environment-tag
+            TAGS="<< parameters.environment-tag >>"
+
+            # Add branch name
+            BRANCH_TAG=$(echo "<< pipeline.git.branch >>" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            TAGS="$TAGS,$BRANCH_TAG"
+
+            # Add long SHA (equivalent to type=sha,format=long)
+            TAGS="$TAGS,sha-<< pipeline.git.revision >>"
+
+            # Add latest only if on main branch
+            if [ "<< pipeline.git.branch >>" = "main" ]; then
+              TAGS="$TAGS,latest"
+            fi
+
+            echo "Generated tags: $TAGS"
+            echo "export DOCKER_TAGS=\"$TAGS\"" >> $BASH_ENV
+      - docker/build:
+          image: << parameters.docker-image >>
+          tag: $DOCKER_TAGS
+          dockerfile: Dockerfile
+          cache_from: << parameters.docker-image >>:latest
+      - docker/push:
+          image: << parameters.docker-image >>
+          tag: $DOCKER_TAGS
+
+  # Deploy to UAT environment
+  deploy-uat:
+    executor: docker-executor
+    steps:
+      - setup_remote_docker
+      - heroku/install
+      - deploy-to-heroku:
+          environment: UAT
+          environment-tag: uat
+          app-name-env-var: HEROKU_APP_NAME_UAT
+
+  # Deploy to PROD environment
+  deploy-prod:
+    executor: docker-executor
+    steps:
+      - setup_remote_docker
+      - heroku/install
+      - deploy-to-heroku:
+          environment: PROD
+          environment-tag: prod
+          app-name-env-var: HEROKU_APP_NAME_PROD
+
+  # Run acceptance tests for UAT
+  test-acceptance-uat:
+    executor: node-executor
+    steps:
+      - setup-qa-environment
+      - run-acceptance-tests:
+          environment: UAT
+
+  # Run flaky tests
+  test-flaky:
+    executor: node-executor
+    parameters:
+      iterations:
+        type: integer
+        default: 6
+    steps:
+      - setup-dev-environment
+      - run-flaky-tests:
+          iterations: << parameters.iterations >>
+
+  # Promote Docker image to production
+  promote-to-prod:
+    executor: docker-executor
+    steps:
+      - setup_remote_docker
+      - run:
+          name: Login to Docker Hub
+          command: |
+            echo $DOCKER_HUB_TOKEN | docker login --username $DOCKER_HUB_USERNAME --password-stdin
+      - run:
+          name: Pull and retag Docker Image for production
+          command: |
+            # Use long SHA format to match the build step
+            docker pull "$DOCKER_IMAGE:sha-<< pipeline.git.revision >>"
+            docker tag "$DOCKER_IMAGE:sha-<< pipeline.git.revision >>" "$DOCKER_IMAGE:<< pipeline.git.tag >>"
+            docker tag "$DOCKER_IMAGE:sha-<< pipeline.git.revision >>" "$DOCKER_IMAGE:prod"
+            docker push "$DOCKER_IMAGE:<< pipeline.git.tag >>"
+            docker push "$DOCKER_IMAGE:prod"
+
+# Workflows
+workflows:
+  # SIT workflow - triggered on main branch pushes and PRs (excludes manual flaky runs)
+  sit-workflow:
+    when:
+      and:
+        - equal: [main, << pipeline.git.branch >>]
+        - not:
+            matches:
+              pattern: "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+              value: << pipeline.git.tag >>
+        - not: << pipeline.parameters.run-flaky-tests >>
+    jobs:
+      - test-dev:
+          context:
+            - sonar
+            - reportportal
+
+  # Flaky test workflow - triggered manually via UI with parameters
+  flaky-test-workflow:
+    when: << pipeline.parameters.run-flaky-tests >>
+    jobs:
+      - test-flaky:
+          iterations: << pipeline.parameters.flaky-test-iterations >>
+          context:
+            - reportportal
+
+  # UAT workflow - triggered on release/* branches (ReleaseFlow pattern)
+  uat-workflow:
+    when:
+      matches:
+        pattern: ^release/.*
+        value: << pipeline.git.branch >>
+    jobs:
+      - test-dev:
+          context:
+            - sonar
+            - reportportal
+      - build-and-push:
+          name: build-uat
+          environment-tag: uat
+          docker-image: ${DOCKER_IMAGE}
+          context:
+            - docker-hub
+          requires:
+            - test-dev
+          filters:
+            branches:
+              only: /^release\/.*/
+      - deploy-uat:
+          context:
+            - heroku
+            - docker-hub
+          requires:
+            - build-uat
+          filters:
+            branches:
+              only: /^release\/.*/
+      - test-acceptance-uat:
+          context:
+            - reportportal
+            - heroku
+          requires:
+            - deploy-uat
+          filters:
+            branches:
+              only: /^release\/.*/
+
+  # Production workflow - triggered on version tags (v*.*.* pattern)
+  prod-workflow:
+    when:
+      matches:
+        pattern: "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+        value: << pipeline.git.tag >>
+    jobs:
+      - promote-to-prod:
+          context:
+            - docker-hub
+          filters:
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+            branches:
+              ignore: /.*/
+      - deploy-prod:
+          context:
+            - heroku
+            - docker-hub
+          requires:
+            - promote-to-prod
+          filters:
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+            branches:
+              ignore: /.*/

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head></head>
+    <body>
+        <main class="wrap" role="main">
+            <header>
+                <div class="logo">PZ</div>
+                <div>
+                    <h1>Pizza order</h1>
+                    <p class="lead">Quick and simple — fill out the form and submit your order.</p>
+                </div>
+            </header>
+
+            <!-- Example form from HTML5 spec http://www.w3.org/TR/html5/forms.html#writing-a-form's-user-interface -->
+            <form method="post" action="/post" autocomplete="on">
+                <div class="full">
+                    <label for="custname">Customer name</label>
+                    <input id="custname" name="custname" type="text" placeholder="Full name">
+                </div>
+
+                <div>
+                    <label for="custtel">Telephone</label>
+                    <input id="custtel" type="tel" name="custtel" placeholder="e.g. +1 555 555 5555">
+                </div>
+
+                <div>
+                    <label for="custemail">E-mail address</label>
+                    <input id="custemail" type="email" name="custemail" placeholder="you@example.com">
+                </div>
+
+                <fieldset class="full">
+                    <legend>Pizza Size</legend>
+                    <div class="options">
+                        <label class="option-label"><input type="radio" name="size" value="small"> Small</label>
+                        <label class="option-label"><input type="radio" name="size" value="medium"> Medium</label>
+                        <label class="option-label"><input type="radio" name="size" value="large"> Large</label>
+                    </div>
+                </fieldset>
+
+                <fieldset class="full">
+                    <legend>Pizza Toppings</legend>
+                    <div class="options">
+                        <label class="option-label"><input type="checkbox" name="topping" value="bacon"> Bacon</label>
+                        <label class="option-label"><input type="checkbox" name="topping" value="cheese"> Extra
+                            Cheese</label>
+                        <label class="option-label"><input type="checkbox" name="topping" value="onion"> Onion</label>
+                        <label class="option-label"><input type="checkbox" name="topping" value="mushroom">
+                            Mushroom</label>
+                    </div>
+                </fieldset>
+
+                <div>
+                    <label for="delivery">Preferred delivery time</label>
+                    <input id="delivery" type="time" min="11:00" max="21:00" step="900" name="delivery">
+                </div>
+
+                <div class="full">
+                    <label for="comments">Delivery instructions</label>
+                    <textarea
+                        id="comments"
+                        name="comments"
+                        placeholder="Add any special instructions for delivery"
+                    ></textarea>
+                </div>
+
+                <div class="full actions">
+                    <button type="submit">Submit order</button>
+                </div>
+            </form>
+        </main>
+    </body>
+</html>

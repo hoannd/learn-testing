@@ -1,0 +1,28 @@
+{
+    "name": "learn-testing",
+    "version": "1.0.4",
+    "private": true,
+    "scripts": {
+        "start": "tsx server/main.ts"
+    },
+    "dependencies": {
+        "tsx": "^4.20.3"
+    },
+    "devDependencies": {
+        "@getgauge/cli": "^1.6.19",
+        "@playwright/test": "^1.55.0",
+        "@reportportal/agent-js-playwright": "^5.2.2",
+        "@reportportal/agent-js-vitest": "^5.1.1",
+        "@sonar/scan": "^4.3.0",
+        "@types/node": "^24.0.15",
+        "@vitest/coverage-v8": "^3.2.4",
+        "gauge-ts": "^0.3.5",
+        "playwright": "^1.54.2",
+        "typescript": "^5.8.3",
+        "vitest": "^3.2.4",
+        "vitest-sonar-reporter": "^2.0.4"
+    },
+    "overrides": {
+        "glob": "^11.0.3"
+    }
+}

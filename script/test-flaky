@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+ITERATIONS=${1:-6}
+
+for i in $(seq 1 "$ITERATIONS"); do
+    echo "Run $i/$ITERATIONS"
+    set +e
+    npx playwright test --project=chromium
+    set -e
+done

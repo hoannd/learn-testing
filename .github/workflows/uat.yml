@@ -1,0 +1,39 @@
+name: UAT Workflow
+
+on:
+  push:
+    branches: [release/*]
+  pull_request:
+    branches: [release/*]
+
+jobs:
+  test-dev:
+    name: Test Development Environment
+    uses: ./.github/workflows/test-dev.reusable.yml
+    secrets: inherit
+  build:
+    name: Build and Push Docker Image
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/build.reusable.yml
+    needs: test-dev
+    with:
+      environment-tag: uat
+    permissions:
+      contents: read
+      packages: write
+  deploy:
+    name: Deploy to UAT
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/deploy.reusable.yml
+    with:
+      environment: UAT
+    needs: build
+    secrets: inherit
+  test-acceptance:
+    name: Run Acceptance Tests
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/test-acceptance.reusable.yml
+    with:
+      environment: UAT
+    needs: deploy
+    secrets: inherit

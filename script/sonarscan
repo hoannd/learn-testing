@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+# script/setup: Set up the environment for development.
+
+# Exit immediately if an error occurs
+set -euo pipefail
+
+# Go to the project directory
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# Check if npx is available
+hash npx 2>/dev/null || {
+    echo "Command \`npx\` not found. Please install npx first."
+    exit 1
+}
+
+required_env_vars=("SONAR_TOKEN" "SONAR_HOST_URL")
+for var in "${required_env_vars[@]}"; do
+    if [[ -z "${!var:-}" ]]; then
+        echo "Environment variable '$var' is not set."
+        exit 1
+    fi
+done
+
+echo '==> Running SonarQube scan...'
+npx sonar

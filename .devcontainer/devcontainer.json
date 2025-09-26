@@ -1,0 +1,28 @@
+{
+    "name": "Learn Testing",
+    "dockerComposeFile": "compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "stopCompose",
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "24",
+            "nodeGypDependencies": true,
+            "installYarnUsingApt": false
+        }
+    },
+    "remoteEnv": {
+        "PATH": "${containerWorkspaceFolder}/node_modules/.bin:${containerEnv:PATH}"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [],
+            "settings": {}
+        }
+    },
+
+    "forwardPorts": [4444, 8080],
+    "postCreateCommand": "./script/setup-qa",
+    "postStartCommand": "git config --global --add safe.directory /workspace",
+    "remoteUser": "vscode"
+}

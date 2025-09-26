@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+# script/test: Run tests for the specified language or all languages.
+
+# Exit immediately if an error occurs
+set -euo pipefail
+
+# Go to the project directory
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+echo '==> Running tests...'
+npx vitest run --coverage

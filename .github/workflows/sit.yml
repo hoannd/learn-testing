@@ -1,0 +1,14 @@
+name: SIT Workflow
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-dev:
+    name: Test Development Environment
+    uses: ./.github/workflows/test-dev.reusable.yml
+    secrets: inherit

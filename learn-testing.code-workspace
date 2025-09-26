@@ -1,0 +1,33 @@
+{
+    "folders": [
+        {
+            "name": "Learn Testing",
+            "path": "."
+        }
+    ],
+    "settings": {
+        // Editor
+        "editor.tabSize": 4,
+        "editor.rulers": [
+            120
+        ],
+        "editor.wordWrapColumn": 120,
+        "editor.wordWrap": "bounded",
+        // Files
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        "files.trimFinalNewlines": true,
+        "files.exclude": {
+            // Ascending case-sensitive order
+            "**/.DS_Store": true,
+            "**/.git": true,
+            "**/Thumbs.db": true,
+            "**/node_modules": true,
+            "*.lock": true,
+            "package-lock.json": true
+        }
+    },
+    "extensions": {
+        "recommendations": []
+    }
+}

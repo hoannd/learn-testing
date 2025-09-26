@@ -1,0 +1,80 @@
+name: Flaky Test Reusable Workflow
+
+on:
+  workflow_call:
+    inputs:
+      iterations:
+        description: 'Number of test iterations to run'
+        required: false
+        default: 6
+        type: number
+
+jobs:
+  test-flaky:
+    name: Flaky Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run flaky tests
+        run: ./script/test-flaky ${{ inputs.iterations }}
+        env:
+          CI: true
+          RP_ENABLED: true
+          RP_API_KEY: ${{ secrets.RP_API_KEY }}
+          RP_URL: ${{ vars.RP_URL }}
+          RP_PROJECT: ${{ vars.RP_PROJECT }}
+          RP_LAUNCH_DEBUGMODE: false
+          RP_LAUNCH_DESCRIPTION: |
+            ### Flaky Test Launch Details
+            - **Repository**: [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})
+            - **Ref**: [`${{ github.ref }}`](${{ github.server_url }}/${{ github.repository }}/${{ startsWith(github.ref, 'refs/pull/') && format('pull/{0}', github.event.pull_request.number) || startsWith(github.ref, 'refs/tags/') && format('releases/tag/{0}', github.ref_name) || format('tree/{0}', github.ref_name) }})
+            - **Commit**: [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+            - **Run**: [#${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - **Iterations**: ${{ inputs.iterations }}
+            - **Triggered by**: [@${{ github.actor }}](${{ github.server_url }}/${{ github.actor }})
+            - **Event**: `${{ github.event_name }}`
+          RP_LAUNCH_NAME: Learn Testing | Flaky | Playwright
+          RP_LAUNCH_ATTRIBUTES: >-
+            github.actor:${{ github.actor }};
+            github.ref:${{ github.ref }};
+            github.commit:${{ github.sha }};
+            github.repository:${{ github.repository }};
+            github.run.id:${{ github.run_id }};
+            github.workflow:${{ github.workflow }};
+            team.workstream:learn-testing;
+            test.source:github-actions;
+            test.implementation:playwright;
+            test.type:flaky;
+            test.iterations:${{ inputs.iterations }}
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-flaky
+          path: playwright-report/
+          retention-days: 3
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flaky-test-results
+          path: |
+            test-results/
+            logs/
+          retention-days: 3

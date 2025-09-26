@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# script/test: Run tests for the specified language or all languages.
+
+# Exit immediately if an error occurs
+set -euo pipefail
+
+# Go to the project directory
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+echo '==> Running tests...'
+# Disable `[DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.` from Gauge TS plugin 0.3.5
+NODE_OPTIONS=--disable-warning=DEP0190 npx gauge run specs

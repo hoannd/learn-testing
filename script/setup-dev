@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# script/setup: Set up the environment for development.
+
+# Exit immediately if an error occurs
+set -euo pipefail
+
+# Go to the project directory
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# Check if npm is available
+hash npm 2>/dev/null || {
+    echo "Command \`npm\` not found. Please install npm first."
+    exit 1
+}
+
+echo '==> Install TypeScript/Node.js dependencies…'
+# Check if running in CI environment
+CI_MODE="${CI:-false}"
+if [[ "$CI_MODE" == "true" ]]; then
+    npm ci
+else
+    npm install
+fi
